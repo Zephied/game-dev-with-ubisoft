@@ -1,0 +1,10 @@
+﻿  GameTest.cpp
+C:\Users\galmi\OneDrive\Desktop\4. API for Prog 2023\GameTest\GameTest.cpp(208,29): warning C4244: 'argument' : conversion de 'float' en 'int', perte possible de données
+  (compiler le fichier source '/GameTest.cpp')
+  
+C:\Users\galmi\OneDrive\Desktop\4. API for Prog 2023\GameTest\GameTest.cpp(208,16): warning C4244: 'argument' : conversion de 'float' en 'int', perte possible de données
+  (compiler le fichier source '/GameTest.cpp')
+  
+  GameTest.vcxproj -> C:\Users\galmi\OneDrive\Desktop\4. API for Prog 2023\x64\Debug\GameTest.exe
+  C:\Users\galmi\OneDrive\Desktop\4. API for Prog 2023\\GameTest\glut\bin\x64\freeglut.dll
+  1 fichier(s) copiÚ(s)
