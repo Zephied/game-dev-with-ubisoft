@@ -8,11 +8,10 @@
 //------------------------------------------------------------------------
 #include "app\app.h"
 //------------------------------------------------------------------------
-
+#include <sstream>
 //------------------------------------------------------------------------
 // Eample data....
 //------------------------------------------------------------------------
-CSimpleSprite* testSprite;
 
 struct Platform
 {
@@ -36,28 +35,7 @@ struct World
 	}
 
 	void RemovePlatform() {
-		platforms.clear();
-	}
-
-	bool Collision() {
-		float charPosX, charPosY;
-		testSprite->GetPosition(charPosX, charPosY);
-		float charWidth = testSprite->GetWidth();
-		float charHeight = testSprite->GetHeight();
-
-		charPosX -= charWidth / 2;
-		charPosY -= charHeight / 2;
-
-		for (const auto& platform : platforms) {
-			if (charPosX < platform.posx + platform.width &&
-				charPosX + charWidth > platform.posx &&
-				charPosY < platform.posy + platform.height &&
-				charPosY + charHeight > platform.posy) {
-				return true;
-			}
-		}
-
-		return false;
+		platforms.erase(platforms.begin(), platforms.end());
 	}
 
 	bool Collision(float charPosX, float charPosY, float charWidth, float charHeight) {
@@ -116,10 +94,14 @@ struct MainCharacter
 		float speed = App::GetController().GetLeftThumbStickX() * 2.5;
 
 		if (App::GetController().GetLeftThumbStickX() < 0.5f) {
-			World.MovePlatformsX(-speed);
+			if (!World.Collision(posx - speed, posy, width, height)) {
+				World.MovePlatformsX(-speed);
+			}
 		}
 		else if (App::GetController().GetLeftThumbStickX() > 0.5f) {
-			World.MovePlatformsX(-speed);
+			if (!World.Collision(posx + speed, posy, width, height)) {
+				World.MovePlatformsX(-speed);
+			}
 		}
 	}
 
@@ -128,22 +110,23 @@ struct MainCharacter
 
 		if (App::GetController().CheckButton(XINPUT_GAMEPAD_A) && !isJumping) {
 			isJumping = true;
-			verticalVelocity = jumpStrength;
+			fallSpeed = jumpStrength;
 		}
 
 		if (isJumping) {
-			verticalVelocity -= gravity;
-			float newPosy = posy + verticalVelocity;
+			fallSpeed -= fallAcceleration;
+			float newPosy = posy + fallAcceleration;
 
 			if (!World.Collision(posx, newPosy, width, height)) {
-				World.MovePlatformsY(-verticalVelocity);
+				World.MovePlatformsY(-fallSpeed);
 			}
 			else {
 				isJumping = false;
-				verticalVelocity = 0.0f;
 			}
 		}
-
+		else {
+			fallSpeed = 0.0f;
+		}
 	}
 
 	void UpdateCharacter(float deltaTime) {
@@ -162,13 +145,14 @@ struct MainCharacter
 
 		if (World.Collision(posx, posy, width, height)) {
 			isJumping = false;
-			verticalVelocity = 0.0f;
 		}
 		
-		if (!World.Collision(posx, posy, width, height)) {
-			posy -= gravity;
-			verticalVelocity = 0.5f;
-			testSprite->SetPosition(posx, posy);
+		if (!World.Collision(posx, posy, width, height) && !isJumping) {
+			fallSpeed += fallAcceleration;
+			World.MovePlatformsY(fallSpeed);
+		}
+		else {
+			fallSpeed = 0.0f;
 		}
 	}
 
@@ -180,11 +164,12 @@ struct MainCharacter
 		ANIM_RIGHT,
 	};
 
+	CSimpleSprite* testSprite;
+	float fallSpeed = 0.0f;
+	const float fallAcceleration = 0.5f;
 	float sprintSpeed = 2.0f;
-	float verticalVelocity = 10.0f;
 	bool isJumping = false;
-	const float jumpStrength = 5.0f;
-	const float gravity = 0.5f;
+	const float jumpStrength = 15.0f;
 	float width;
 	float height;
 	float posx;
@@ -223,7 +208,7 @@ void DrawRectangle(int width, int height, float posx, float posy)
 
 void Render()
 {
-	testSprite->Draw();
+	MainCharacter.testSprite->Draw();
 
 	for (const auto& platform : World.platforms) {
 		DrawRectangle(platform.width, platform.height, platform.posx, platform.posy);
@@ -231,14 +216,20 @@ void Render()
 
 
 	float playerPosX, playerPosY;
-	testSprite->GetPosition(playerPosX, playerPosY);
-	float playerWidth = testSprite->GetWidth();
-	float playerHeight = testSprite->GetHeight();
+	MainCharacter.testSprite->GetPosition(playerPosX, playerPosY);
+	float playerWidth = MainCharacter.testSprite->GetWidth();
+	float playerHeight = MainCharacter.testSprite->GetHeight();
 
 	playerPosX -= playerWidth / 2;
 	playerPosY -= playerHeight / 2;
 
 	DrawRectangle(playerWidth, playerHeight, playerPosX, playerPosY);
+
+	std::stringstream str;
+	str << "jump: ";
+	str << MainCharacter.isJumping;
+	str << "\n";
+	App::Print(playerPosX, playerPosY, str.str().c_str());
 }
 void Shutdown()
 {
