@@ -12,25 +12,90 @@
 //------------------------------------------------------------------------
 // Eample data....
 //------------------------------------------------------------------------
-CSimpleSprite *testSprite;
-
-//------------------------------------------------------------------------
-
+CSimpleSprite* testSprite;
 
 struct Platform
 {
-	float posx = 200.f;
-	float posy = 200.f;
-	int width = 800;
-	int height = 100;
+	float posx;
+	float posy;
+	int width;
+	int height;
 } platform;
+
+struct World
+{
+	std::vector<Platform> platforms;
+
+	void AddPlatform(float posx, float posy, int width, int height) {
+		Platform platform;
+		platform.posx = posx;
+		platform.posy = posy;
+		platform.width = width;
+		platform.height = height;
+		platforms.push_back(platform);
+	}
+
+	void RemovePlatform() {
+		platforms.clear();
+	}
+
+	bool Collision() {
+		float charPosX, charPosY;
+		testSprite->GetPosition(charPosX, charPosY);
+		float charWidth = testSprite->GetWidth();
+		float charHeight = testSprite->GetHeight();
+
+		charPosX -= charWidth / 2;
+		charPosY -= charHeight / 2;
+
+		for (const auto& platform : platforms) {
+			if (charPosX < platform.posx + platform.width &&
+				charPosX + charWidth > platform.posx &&
+				charPosY < platform.posy + platform.height &&
+				charPosY + charHeight > platform.posy) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	bool Collision(float charPosX, float charPosY, float charWidth, float charHeight) {
+		charPosX -= charWidth / 2;
+		charPosY -= charHeight / 2;
+
+		for (const auto& platform : platforms) {
+			if (charPosX < platform.posx + platform.width &&
+				charPosX + charWidth > platform.posx &&
+				charPosY < platform.posy + platform.height &&
+				charPosY + charHeight > platform.posy) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	void MovePlatformsX(float speed) {
+		for (Platform& platform : platforms) {
+			platform.posx += speed;
+		}
+	}
+
+	void MovePlatformsY(float speed) {
+		for (Platform& platform : platforms) {
+			platform.posy += speed;
+		}
+	}
+
+} World;
+//------------------------------------------------------------------------
 
 struct MainCharacter
 {
-
 	void InitCharacter() {
 		testSprite = App::CreateSprite(".\\TestData\\Test.bmp", 8, 4);
-		testSprite->SetPosition(800.0f, 800.0f);
+		testSprite->SetPosition(800.0f, 400.0f);
 		float speed = 1.0f / 15.0f;
 		testSprite->CreateAnimation(ANIM_BACKWARDS, speed, { 0,1,2,3,4,5,6,7 });
 		testSprite->CreateAnimation(ANIM_LEFT, speed, { 8,9,10,11,12,13,14,15 });
@@ -46,95 +111,64 @@ struct MainCharacter
 		delete testSprite;
 	}
 
-	bool Collision() {
-		float charPosX, charPosY;
-		testSprite->GetPosition(charPosX, charPosY);
-		float charWidth = testSprite->GetWidth();
-		float charHeight = testSprite->GetHeight();
+	void MoveCharacter() {
+		testSprite->GetPosition(posx, posy);
+		float speed = App::GetController().GetLeftThumbStickX() * 2.5;
 
-		charPosX -= charWidth / 2;
-		charPosY -= charHeight / 2;
-
-		if (charPosX < platform.posx + platform.width &&
-			charPosX + charWidth > platform.posx &&
-			charPosY < platform.posy + platform.height &&
-			charPosY + charHeight > platform.posy) {
-			return true;
+		if (App::GetController().GetLeftThumbStickX() < 0.5f) {
+			World.MovePlatformsX(-speed);
 		}
-
-		return false;
-	}
-
-	void Sprint() {
-		if (App::IsKeyPressed(VK_LSHIFT)) {
-			sprintSpeed = 3.0f;
-		}
-		else {
-			sprintSpeed = 1.0f;
+		else if (App::GetController().GetLeftThumbStickX() > 0.5f) {
+			World.MovePlatformsX(-speed);
 		}
 	}
 
 	void Jump() {
-		if (App::IsKeyPressed(VK_SPACE) && !isJumping) {
-			verticalVelocity = jumpStrength;
+		testSprite->GetPosition(posx, posy);
+
+		if (App::GetController().CheckButton(XINPUT_GAMEPAD_A) && !isJumping) {
 			isJumping = true;
+			verticalVelocity = jumpStrength;
 		}
-	}
 
-	float LeftMovement(float x, float y) {
-		testSprite->SetAnimation(ANIM_LEFT);
+		if (isJumping) {
+			verticalVelocity -= gravity;
+			float newPosy = posy + verticalVelocity;
 
-		if (Collision() == false) {
-			return x - 2 * sprintSpeed;
-		}
-		else {
-			return x;
-		}
-	}
-
-	float RightMovement(float x, float y) {
-		testSprite->SetAnimation(ANIM_RIGHT);
-
-		if (Collision() == false) {
-			return x + 2 * sprintSpeed;
-		}
-		else {
-			return x;
-		}
-	}
-
-	void UpdateCharacter(float deltaTime) {
-		float x;
-		float y;
-
-		Sprint();
-		Jump();
-
-		testSprite->GetPosition(x, y);
-		testSprite->Update(deltaTime);
-
-		float newY = y + verticalVelocity; // Calculate new y position
-		verticalVelocity -= gravity;
-
-		if (App::IsKeyPressed(VK_LEFT) || App::IsKeyPressed('Q')) {
-			x = LeftMovement(x, y);
-		}
-		else if (App::IsKeyPressed(VK_RIGHT) || App::IsKeyPressed('D')) {
-			x = RightMovement(x, y);
-		}
-		else {
-			testSprite->SetFrame(0);
-			if (!isJumping) {
-				newY -= 3; // Calculate new y position
+			if (!World.Collision(posx, newPosy, width, height)) {
+				World.MovePlatformsY(-verticalVelocity);
+			}
+			else {
+				isJumping = false;
+				verticalVelocity = 0.0f;
 			}
 		}
 
-		testSprite->SetPosition(x, newY); // Temporarily set new position
+	}
 
-		if (Collision()) {
+	void UpdateCharacter(float deltaTime) {
+		if (App::GetController().GetLeftThumbStickX() < 0.5f) {
+			testSprite->SetAnimation(ANIM_LEFT);
+			MoveCharacter();
+		}
+		else if (App::GetController().GetLeftThumbStickX() > 0.5f) {
+			testSprite->SetAnimation(ANIM_RIGHT);
+			MoveCharacter();
+		}
+		else {
+			testSprite->SetFrame(0);
+		}
+		Jump();
+
+		if (World.Collision(posx, posy, width, height)) {
 			isJumping = false;
 			verticalVelocity = 0.0f;
-			testSprite->SetPosition(x, y); // If collision, revert to old position
+		}
+		
+		if (!World.Collision(posx, posy, width, height)) {
+			posy -= gravity;
+			verticalVelocity = 0.5f;
+			testSprite->SetPosition(posx, posy);
 		}
 	}
 
@@ -145,34 +179,30 @@ struct MainCharacter
 		ANIM_LEFT,
 		ANIM_RIGHT,
 	};
-	CSimpleSprite* testsprite;
 
 	float sprintSpeed = 2.0f;
-	float verticalVelocity = 0.0f;
+	float verticalVelocity = 10.0f;
 	bool isJumping = false;
-	const float jumpStrength = 15.0f;
+	const float jumpStrength = 5.0f;
 	const float gravity = 0.5f;
 	float width;
 	float height;
 	float posx;
 	float posy;
-}MainCharacter;
+} MainCharacter;
 
-//------------------------------------------------------------------------
-// Called before first update. Do any initial setup here.
-//------------------------------------------------------------------------
 void Init()
 {
+	World.AddPlatform(200.f, 200.f, 800, 100);
+	World.AddPlatform(200.f, 450.f, 100, 600);
+	World.AddPlatform(800.f, 600.f, 100, 50);
+
 	//------------------------------------------------------------------------
 	// Example Sprite Code....
 	//------------------------------------------------------------------------
 	MainCharacter.InitCharacter();
 }
 
-//------------------------------------------------------------------------
-// Update your simulation here. deltaTime is the elapsed time since the last update in ms.
-// This will be called at no greater frequency than the value of APP_MAX_FRAME_RATE
-//------------------------------------------------------------------------
 void Update(float deltaTime)
 {
 	//------------------------------------------------------------------------
@@ -191,11 +221,14 @@ void DrawRectangle(int width, int height, float posx, float posy)
 
 }
 
-
 void Render()
 {
 	testSprite->Draw();
-	DrawRectangle(800, 100, 200.f, 200.f);
+
+	for (const auto& platform : World.platforms) {
+		DrawRectangle(platform.width, platform.height, platform.posx, platform.posy);
+	}
+
 
 	float playerPosX, playerPosY;
 	testSprite->GetPosition(playerPosX, playerPosY);
@@ -207,10 +240,8 @@ void Render()
 
 	DrawRectangle(playerWidth, playerHeight, playerPosX, playerPosY);
 }
-
-
-
 void Shutdown()
 {
 	MainCharacter.DestroyCharacter();
+	World.RemovePlatform();
 }
