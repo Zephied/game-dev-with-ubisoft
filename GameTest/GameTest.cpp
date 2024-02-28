@@ -94,8 +94,6 @@ void DrawRectangle(int width, int height, float posx, float posy)
 	App::DrawLine(posx, posy, posx, posy2);
 	App::DrawLine(posx2, posy, posx2, posy2);
 	App::DrawLine(posx2, posy2, posx, posy2);
-	App::DrawLine(posx, posy, posx2, posy2);
-
 }
 
 struct MainCharacter
